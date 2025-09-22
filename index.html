@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Moje lokomotivy</title>
+  <style>
+    :root{--bg:#eef6fb;--card:#fff;--accent:#003366}
+    body{font-family:Inter, Roboto, Arial, sans-serif;background:var(--bg);margin:0;padding:24px;color:#222}
+    header{max-width:1100px;margin:0 auto 20px}
+    h1{color:var(--accent);margin:0 0 8px}
+    p.lead{margin:0 0 16px;color:#444}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+    .controls input[type=text]{padding:10px;border-radius:8px;border:1px solid #c9d7e6;min-width:220px}
+    .controls button{padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:white;cursor:pointer}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;max-width:1100px;margin:0 auto}
+    .card{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06);overflow:hidden}
+    .card img{width:100%;height:150px;object-fit:cover;border-radius:8px}
+    .card h3{margin:10px 0 4px;font-size:18px}
+    .nickname{color:#0066aa;font-weight:600;margin-right:6px}
+    .meta{font-size:13px;color:#555}
+
+    form.add{max-width:1100px;margin:20px auto;padding:12px;background:linear-gradient(180deg,rgba(255,255,255,0.9),rgba(255,255,255,0.95));border-radius:12px}
+    form.add .row{display:flex;gap:10px;flex-wrap:wrap}
+    form.add input, form.add textarea{padding:8px;border-radius:8px;border:1px solid #c9d7e6}
+    form.add textarea{min-height:60px;resize:vertical}
+
+    footer{max-width:1100px;margin:28px auto;color:#666;font-size:13px}
+    .small{font-size:12px;color:#777}
+
+    @media (max-width:560px){.controls{flex-direction:column} }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🚆 Moje lokomotivy</h1>
+    <p class="lead">Seznam lokomotiv, jejich (přezdívky) a fotky. Můžeš hledat, přidávat nové a vše se uloží do tvého prohlížeče.</p>
+
+    <div class="controls">
+      <input id="search" type="text" placeholder="Hledat podle názvu nebo přezdívky...">
+      <button id="clear">Vymazat hledání</button>
+      <button id="reset">Obnovit ukázková data</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="grid" id="grid"></section>
+
+    <form class="add" id="addForm">
+      <h3>Přidat novou lokomotivu</h3>
+      <div class="row" style="margin:8px 0">
+        <input id="name" placeholder="Název (např. ČD Class 680)" style="flex:1">
+        <input id="nickname" placeholder="Přezdívka (např. Pendolino)" style="flex:1">
+      </div>
+      <div class="row" style="margin:8px 0">
+        <input id="image" placeholder="URL obrázku (ideálně z Wikimedia Commons)" style="flex:1">
+      </div>
+      <div style="margin-top:10px">
+        <textarea id="desc" placeholder="Krátký popis / trasa (volitelné)"></textarea>
+      </div>
+      <div style="margin-top:10px">
+        <button type="submit">Přidat</button>
+      </div>
+    </form>
+  </main>
+
+  <footer>
+    <div>Tip: obrázky z Wikipedie/Commons přidáš tak, že na stránce s obrázkem klikneš pravým tlačítkem a zvolíš "Kopírovat adresu obrázku". Pokud chceš, můžu ti vygenerovat víc ukázkových položek.</div>
+    <div class="small">Všechna data se ukládají pouze do tvého prohlížeče (localStorage) — nikam se neposílají.</div>
+  </footer>
+
+  <script>
+    // --- ukázková data ---
+    const sample = [
+      {
+        name: 'ČD Class 680',
+        nickname: 'Pendolino',
+        image: 'https://upload.wikimedia.org/wikipedia/commons/3/35/Czech_Pendolino_680_001.jpg',
+        desc: 'Vysokorychlostní souprava ČD, linky Praha – Ostrava / Košice (SC Pendolino)'
+      },
+      {
+        name: 'Railjet (lokomotiva + souprava)',
+        nickname: 'Railjet',
+        image: 'https://upload.wikimedia.org/wikipedia/commons/1/13/CD_railjet_in_Praha_hl.n.jpg',
+        desc: 'Mezinárodní vlak provozovaný ČD/ÖBB; často táhnutý lokomotivou Taurus nebo lokomotivou Siemens.'
+      },
+      {
+        name: 'CityElefant (ČD 471)',
+        nickname: 'CityElefant',
+        image: 'https://upload.wikimedia.org/wikipedia/commons/b/bf/CityElefant_471_004-4.jpg',
+        desc: 'Elektrická jednotka pro příměstskou dopravu v Praze a okolí.'
+      }
+    ];
+
+    // --- práce s UI ---
+    const grid = document.getElementById('grid');
+    const search = document.getElementById('search');
+    const clearBtn = document.getElementById('clear');
+    const resetBtn = document.getElementById('reset');
+
+    function loadData(){
+      const raw = localStorage.getItem('lokomotivy_vlaky');
+      if(raw) return JSON.parse(raw);
+      localStorage.setItem('lokomotivy_vlaky', JSON.stringify(sample));
+      return sample.slice();
+    }
+
+    function saveData(arr){ localStorage.setItem('lokomotivy_vlaky', JSON.stringify(arr)); }
+
+    function render(list){
+      grid.innerHTML = '';
+      if(!list.length){ grid.innerHTML = '<p style="grid-column:1/-1;color:#666">Žádné výsledky</p>'; return }
+      list.forEach(item=>{
+        const el = document.createElement('article'); el.className='card';
+        el.innerHTML = `
+          <img loading="lazy" src="${item.image}" alt="${item.name}">
+          <h3>${item.name}</h3>
+          <div class="meta"><span class="nickname">${item.nickname||''}</span>${item.desc||''}</div>
+        `;
+        grid.appendChild(el);
+      })
+    }
+
+    // inicializace
+    let data = loadData();
+    render(data);
+
+    // hledání
+    search.addEventListener('input', ()=>{
+      const q = search.value.trim().toLowerCase();
+      if(!q) return render(data);
+      const filtered = data.filter(d => (d.name||'').toLowerCase().includes(q) || (d.nickname||'').toLowerCase().includes(q) || (d.desc||'').toLowerCase().includes(q));
+      render(filtered);
+    });
+    clearBtn.addEventListener('click', ()=>{ search.value=''; render(data); });
+
+    // přidání
+    const form = document.getElementById('addForm');
+    form.addEventListener('submit', e=>{
+      e.preventDefault();
+      const n = document.getElementById('name').value.trim();
+      if(!n) return alert('Zadej název lokomotivy');
+      const nick = document.getElementById('nickname').value.trim();
+      const img = document.getElementById('image').value.trim() || 'https://upload.wikimedia.org/wikipedia/commons/3/35/Czech_Pendolino_680_001.jpg';
+      const desc = document.getElementById('desc').value.trim();
+      const obj = {name: n, nickname: nick, image: img, desc: desc};
+      data.unshift(obj);
+      saveData(data);
+      render(data);
+      form.reset();
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+
+    // reset na ukázková data
+    resetBtn.addEventListener('click', ()=>{ if(confirm('Opravdu obnovit ukázková data (přepíše místní seznam)?')){ localStorage.removeItem('lokomotivy_vlaky'); data = loadData(); render(data); }});
+  </script>
+</body>
+</html>
